@@ -37,4 +37,8 @@ class HttpResponse {
     return $reponse;
   }
   
+  static public function test() {
+    return '';
+  }
+  
 }
