@@ -37,8 +37,15 @@ class HttpResponse {
     return $reponse;
   }
   
-  static public function test() {
-    return '';
+  /**
+   *
+   * @deprecated
+   * @param mixed $configs
+   * @param int $code
+   * @param string $message
+   */
+  static public function reponse($configs, int $code = null, $message = null) {
+    return self::response($configs, $code, $message);
   }
   
 }
