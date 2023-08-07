@@ -4,8 +4,28 @@ namespace Stephane888\DrupalUtility;
 
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Drupal\Component\Serialization\Json;
+use Drupal\Core\Cache\CacheableJsonResponse;
+use Drupal\Core\Cache\CacheableMetadata;
 
 class HttpResponse {
+  /**
+   * Cache is use by default
+   *
+   * @var array
+   */
+  public static $useCache = true;
+  
+  /**
+   * Default cache
+   *
+   * @var array
+   */
+  public static $cacheMetadatas = [
+    'max-age' => 600,
+    'contexts' => [
+      'url'
+    ]
+  ];
   
   /**
    *
@@ -13,8 +33,9 @@ class HttpResponse {
    * @param number $code
    * @param string $message
    * @return \Symfony\Component\HttpFoundation\JsonResponse
+   * @see https://freelance-drupal.com/blog/mettre-en-cache-la-reponse-dun-callback-json-avec-drupal
    */
-  static public function response($configs, int $code = null, $message = null) {
+  static public function response($configs, int $code = null, $message = null, $cacheMetadatas = []) {
     if ($message) {
       $message = trim($message);
       if (strlen($message) > 150) {
@@ -24,7 +45,16 @@ class HttpResponse {
     
     if (!is_string($configs))
       $configs = Json::encode($configs);
-    $reponse = new JsonResponse();
+    if (self::$useCache) {
+      $reponse = new JsonResponse();
+    }
+    else {
+      if (!$cacheMetadatas)
+        $cacheMetadatas = self::$cacheMetadatas;
+      $reponse = new CacheableJsonResponse();
+      $reponse->addCacheableDependency(CacheableMetadata::createFromRenderArray($cacheMetadatas));
+      \Drupal::messenger()->addStatus('utilisation du cache');
+    }
     if ($code)
       $reponse->setStatusCode($code, $message);
     $reponse->setContent($configs);
