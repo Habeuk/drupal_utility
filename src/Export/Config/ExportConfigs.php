@@ -2,6 +2,9 @@
 
 namespace Stephane888\DrupalUtility\Export\Config;
 
+use Drupal\Core\Serialization\Yaml;
+use Stephane888\Debug\debugLog;
+
 /**
  * Fournit des methodes permettant d'exporter les informations de configuration.
  *

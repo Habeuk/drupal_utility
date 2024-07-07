@@ -4,9 +4,12 @@ namespace Stephane888\DrupalUtility\Export\Config;
 
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\export_import_entities\Services\ThirdPartySettings;
+use Drupal\Core\Extension\ExtensionPathResolver;
+use Drupal\Core\Config\StorageInterface;
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Serialization\Yaml;
 use Stephane888\Debug\debugLog;
+use Drupal\file\Entity\File;
 
 /**
  * Contient les fonction de bases.
@@ -20,6 +23,64 @@ class LoadBase extends ControllerBase {
    * @var string
    */
   protected static $preffix = [];
+  
+  /**
+   * Contient la liste des configurations deja crees.
+   *
+   * @var array
+   */
+  protected static $configEntities = [];
+  
+  /**
+   * key 'export_import_entities.settings'
+   *
+   * @var array
+   */
+  protected $settings;
+  
+  /**
+   * The config storage.
+   *
+   * @var \Drupal\Core\Config\CachedStorage
+   */
+  protected $configStorage;
+  
+  /**
+   * Check if config is init;
+   *
+   * @var boolean
+   */
+  private $configInit = false;
+  
+  /**
+   * Les valeurs par defaut pose probleme dans certaines conditions( voir
+   * wb-horizon).
+   *
+   * @var boolean
+   */
+  protected static $removeDefaultValue = TRUE;
+  
+  /**
+   *
+   * @var boolean
+   */
+  protected static $saveIt = true;
+  /**
+   *
+   * @var boolean
+   */
+  protected static $removeUUID = false;
+  
+  /**
+   *
+   * @var ExtensionPathResolver
+   */
+  protected $ExtensionPathResolver;
+  
+  function __construct(StorageInterface $config_storage, ExtensionPathResolver $ExtensionPathResolver) {
+    $this->configStorage = $config_storage;
+    $this->ExtensionPathResolver = $ExtensionPathResolver;
+  }
   
   /**
    * Permet d'exporter toutes les entités en relation avec le modeles fournit :
@@ -381,6 +442,12 @@ class LoadBase extends ControllerBase {
       }
   }
   
+  protected function removeUuid(array &$confs) {
+    if (self::$removeUUID && !empty($confs['uuid'])) {
+      unset($confs['uuid']);
+    }
+  }
+  
   /**
    * --
    */
@@ -407,6 +474,55 @@ class LoadBase extends ControllerBase {
     }
   }
   
+  /**
+   * La configuration.
+   *
+   * @return array|number|mixed|\Drupal\Component\Render\MarkupInterface|string
+   */
+  protected function getSettings() {
+    if (!$this->settings) {
+      $this->settings = $this->config('export_import_entities.settings')->getRawData();
+    }
+    return $this->settings;
+  }
+  
+  /**
+   * Ajoute les images par defaut, mais encodé.
+   */
+  protected function addDefaultEncodeData(array &$defaultConfs) {
+    if (!empty($defaultConfs['field_type']) && $defaultConfs['field_type'] == 'image' && !empty($defaultConfs['settings']['default_image']['uuid'])) {
+      $uuid = $defaultConfs['settings']['default_image']['uuid'];
+      if ($id = \Drupal::service('paragraphs_type.uuid_lookup')->get($uuid)) {
+        $file = File::load($id);
+        if ($file) {
+          $defaultConfs["default_encode_file"] = 'data:' . $file->getMimeType() . ';base64,' . base64_encode(file_get_contents($file->getFileUri()));
+          $defaultConfs["default_filename"] = $file->getFilename();
+        }
+      }
+    }
+  }
+  
+  /**
+   * Retire les valeurs par defaut pour certains champs.
+   */
+  protected function removeDefaultValue(array &$defaultConfs) {
+    if (self::$removeDefaultValue && !empty($defaultConfs['field_type'])) {
+      $removeDefaultValue = [
+        'text_with_summary',
+        'string',
+        'more_fields_icon_text',
+        'text_long',
+        'link',
+        'entity_reference',
+        'string_long',
+        'geolocation',
+        'phone_international'
+      ];
+      if (in_array($defaultConfs['field_type'], $removeDefaultValue))
+        $defaultConfs['default_value'] = [];
+    }
+  }
+  
   public function hasGenerate($k) {
     return isset(self::$configEntities[$k]) ? true : false;
   }
@@ -422,5 +538,22 @@ class LoadBase extends ControllerBase {
       return isset(self::$configEntities[$k]) ? self::$configEntities[$k] : null;
     else
       return self::$configEntities;
+  }
+  
+  public function setRemoveDefaultValue($action = true) {
+    self::$removeDefaultValue = $action;
+  }
+  
+  /**
+   * Permet d'enregistrer ou pas les données de configurations.
+   *
+   * @param boolean $action
+   */
+  public function setSaveIt($action = true) {
+    self::$saveIt = $action;
+  }
+  
+  public function setRemoveUUID($action = true) {
+    self::$removeUUID = $action;
   }
 }
