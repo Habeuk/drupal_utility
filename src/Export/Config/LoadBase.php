@@ -449,7 +449,8 @@ class LoadBase extends ControllerBase {
   }
   
   /**
-   * --
+   * Les configs doivent etre dans les dossiers "/config/install" ou
+   * "/config/optional"
    */
   protected function initExportDir() {
     if (!$this->configInit) {
@@ -484,6 +485,14 @@ class LoadBase extends ControllerBase {
       $this->settings = $this->config('export_import_entities.settings')->getRawData();
     }
     return $this->settings;
+  }
+  
+  /**
+   * Certains données de configuration ne doivent pas etre exporter.
+   * Elle doit etre sucharger par les programmes superieurs.
+   */
+  protected function filterConfig($config) {
+    return true;
   }
   
   /**
