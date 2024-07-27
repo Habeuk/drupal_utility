@@ -7,7 +7,7 @@ use Drupal\export_import_entities\Services\ThirdPartySettings;
 use Drupal\Core\Extension\ExtensionPathResolver;
 use Drupal\Core\Config\StorageInterface;
 use Drupal\Component\Utility\NestedArray;
-use Drupal\Core\Serialization\Yaml;
+use Drupal\Component\Serialization\Yaml;
 use Stephane888\Debug\debugLog;
 use Drupal\file\Entity\File;
 
