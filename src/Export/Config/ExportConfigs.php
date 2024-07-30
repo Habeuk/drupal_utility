@@ -2,7 +2,7 @@
 
 namespace Stephane888\DrupalUtility\Export\Config;
 
-use Drupal\Core\Serialization\Yaml;
+use Drupal\Component\Serialization\Yaml;
 use Stephane888\Debug\debugLog;
 
 /**
