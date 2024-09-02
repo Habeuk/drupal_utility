@@ -32,6 +32,14 @@ class LoadBase extends ControllerBase {
   protected static $configEntities = [];
   
   /**
+   * Contient tous les modules qui doivent etre activer afin que la
+   * configuration puissent fonctionner.
+   *
+   * @var array
+   */
+  protected static $configModules = [];
+  
+  /**
    * key 'export_import_entities.settings'
    *
    * @var array
@@ -308,6 +316,7 @@ class LoadBase extends ControllerBase {
         else
           $configs = $defaultConfs;
         
+        $this->addConfigModules($configs, $name);
         $this->removeUuid($configs);
         $string = Yaml::encode($configs);
         if (self::$saveIt)
@@ -319,6 +328,17 @@ class LoadBase extends ControllerBase {
         $this->loadConfigsViewTerms($name);
         // On essaie de charger les configurations requises.
         $this->loadDependancyConfig($name);
+      }
+    }
+  }
+  
+  /**
+   * Permet de recuperer les modules necessaire à l'execution de la config.
+   */
+  protected function addConfigModules(array $configs, $name) {
+    if (!empty($configs['dependencies']['module'])) {
+      foreach ($configs['dependencies']['module'] as $module) {
+        self::$configModules[$module][] = $name;
       }
     }
   }
@@ -388,6 +408,18 @@ class LoadBase extends ControllerBase {
         $this->generateAllConfigAboutEntity("commerce_product", $bundle, "commerce_product_variation_type");
       }
     }
+    /**
+     * on determine toutes les depences liée à ces type.
+     */
+    elseif (str_contains($nameConf, "block_content.blocks_contents_type.") || str_contains($nameConf, "paragraphs.paragraphs_type.")) {
+      $this->generateAllConfigAboutEntity($ar[1], $ar[1], NULL, $ar[2]);
+    }
+    /**
+     * On determine toutes les depences block_content_type.
+     */
+    elseif (str_contains($nameConf, "block_content.type.") || str_contains($nameConf, "block_content.block_content_type.")) {
+      $this->generateAllConfigAboutEntity("block_content_type", "block_content_type", NULL, $ar[2]);
+    }
   }
   
   /**
@@ -424,6 +456,7 @@ class LoadBase extends ControllerBase {
               $this->removeDefaultValue($defaultConfs);
             }
             $this->removeUuid($defaultConfs);
+            $this->addConfigModules($defaultConfs, $name);
             $string = Yaml::encode($defaultConfs);
             if (self::$saveIt)
               debugLog::logger($string, $name . '.yml', false, 'file');
@@ -435,13 +468,15 @@ class LoadBase extends ControllerBase {
             // On essaie de charger les configurations requises.
             $this->loadDependancyConfig($name);
           }
-          else {
-            self::$configEntities[$name] = 'none';
-          }
         }
       }
   }
   
+  /**
+   * Remove uuid if is necessary.
+   *
+   * @param array $confs
+   */
   protected function removeUuid(array &$confs) {
     if (self::$removeUUID && !empty($confs['uuid'])) {
       unset($confs['uuid']);
@@ -537,7 +572,7 @@ class LoadBase extends ControllerBase {
   }
   
   /**
-   * Chage une ou toute la config qui a été generée.
+   * Charge une ou toute la config qui a été generée.
    *
    * @param string $k
    * @return NULL|array
@@ -549,6 +584,21 @@ class LoadBase extends ControllerBase {
       return self::$configEntities;
   }
   
+  /**
+   * Retourne la liste des modules necesssaire pour l'installation de la
+   * configuration.
+   *
+   * @return array
+   */
+  public function getConfigModules() {
+    return self::$configModules;
+  }
+  
+  /**
+   * --
+   *
+   * @param boolean $action
+   */
   public function setRemoveDefaultValue($action = true) {
     self::$removeDefaultValue = $action;
   }

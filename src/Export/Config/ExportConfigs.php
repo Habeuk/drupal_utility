@@ -17,6 +17,7 @@ class ExportConfigs extends LoadBase {
     $this->initExportDir();
     $configs = Yaml::decode($string);
     $this->removeUuid($configs);
+    $this->addConfigModules($configs, $name);
     $string = Yaml::encode($configs);
     
     if (self::$saveIt)
