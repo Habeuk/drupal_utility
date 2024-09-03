@@ -102,6 +102,7 @@ class LoadBase extends ControllerBase {
    * $bundle = article
    */
   public function generateAllConfigAboutEntity($entiy_type_id, $bundle, $BundleEntityType = null, $id = null) {
+    $this->initExportDir();
     /**
      *
      * @var \Drupal\Core\Config\Entity\ConfigEntityType $entityTypeDefinition
@@ -113,7 +114,6 @@ class LoadBase extends ControllerBase {
       $this->getConfigFromName($name);
       $idTranslation = 'language.content_settings.' . $entiy_type_id . '.' . $bundle;
       $this->getConfigFromName($idTranslation);
-      
       $this->getFields($entiy_type_id, $bundle);
       self::loadConfigs($entiy_type_id . '.' . $bundle, 'entity_form_display');
       self::loadConfigs($entiy_type_id . '.' . $bundle, 'entity_form_mode');
@@ -319,6 +319,9 @@ class LoadBase extends ControllerBase {
         $this->addConfigModules($configs, $name);
         $this->removeUuid($configs);
         $string = Yaml::encode($configs);
+        // if (str_contains($name, "image_540x710")) {
+        // dump($name, debugLog::$path, $defaultConfs);
+        // }
         if (self::$saveIt)
           debugLog::logger($string, $name . '.yml', false, 'file');
         self::$configEntities[$name] = [
@@ -458,6 +461,9 @@ class LoadBase extends ControllerBase {
             $this->removeUuid($defaultConfs);
             $this->addConfigModules($defaultConfs, $name);
             $string = Yaml::encode($defaultConfs);
+            // if (str_contains($name, "image_540x710")) {
+            // dump($name, debugLog::$path, $defaultConfs);
+            // }
             if (self::$saveIt)
               debugLog::logger($string, $name . '.yml', false, 'file');
             self::$configEntities[$name] = [
