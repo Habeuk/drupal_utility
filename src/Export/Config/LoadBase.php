@@ -84,6 +84,7 @@ class LoadBase extends ControllerBase {
    * @var ExtensionPathResolver
    */
   protected $ExtensionPathResolver;
+  protected $viewPrefix;
   
   function __construct(StorageInterface $config_storage, ExtensionPathResolver $ExtensionPathResolver) {
     $this->configStorage = $config_storage;
@@ -252,7 +253,8 @@ class LoadBase extends ControllerBase {
              * @var \Drupal\Core\Entity\Entity\EntityFormDisplay $entity
              */
             $entity = \Drupal::entityTypeManager()->getStorage($entity_type_id)->load($id);
-            $LoadConfigs->getConfigFromName($preffix . '.' . $id);
+            $name = $preffix . '.' . $id;
+            $LoadConfigs->getConfigFromName($name);
             // On se rassure que ses dependances ont été cree ou on les crées.
             $confs = $entity->getDependencies();
             $LoadConfigs->getConfig($confs);
@@ -330,7 +332,7 @@ class LoadBase extends ControllerBase {
         ];
         $this->loadConfigsViewTerms($name);
         // On essaie de charger les configurations requises.
-        $this->loadDependancyConfig($name);
+        $this->loadDependancyConfig($name, $configs);
       }
     }
   }
@@ -372,13 +374,43 @@ class LoadBase extends ControllerBase {
    *
    * @param string $nameConf
    */
-  private function loadDependancyConfig($nameConf) {
+  private function loadDependancyConfig(string $nameConf, array $configs) {
     $this->tryGetDependencies($nameConf);
     $entity_type = null;
     $ar = explode(".", $nameConf);
     if (!empty($ar[0]))
       $entity_type = $ar[0];
     // - Determiner ses dependances.
+    if (str_contains($nameConf, "core.entity_view_display.")) {
+      if (isset($configs['content']))
+        foreach ($configs['content'] as $value) {
+          switch ($value['type']) {
+            case 'more_fields_hbk_file_formatter':
+              if (!empty($value['settings']['image_settings']['image_style'])) {
+                $name = "image.style." . $value['settings']['image_settings']['image_style'];
+                $this->getConfigFromName($name);
+              }
+              if (!empty($value['settings']['thumbs_settings']['image_style'])) {
+                $name = "image.style." . $value['settings']['thumbs_settings']['image_style'];
+                $this->getConfigFromName($name);
+              }
+              break;
+            case 'image':
+              if (!empty($value['settings']['image_style'])) {
+                $name = "image.style." . $value['settings']['image_style'];
+                $this->getConfigFromName($name);
+              }
+              break;
+            case 'fielditem_renderby_view_formatter':
+              if (!empty($value['settings']['view_name'])) {
+                $name = $this->getViewConfigPrefix() . '.' . $value['settings']['view_name'];
+                $this->getConfigFromName($name);
+              }
+              break;
+          }
+        }
+    }
+    //
     if ($entity_type == 'field') {
       $fieldsKeys = explode(".", $nameConf);
       if (count($fieldsKeys) == 5) {
@@ -423,6 +455,22 @@ class LoadBase extends ControllerBase {
     elseif (str_contains($nameConf, "block_content.type.") || str_contains($nameConf, "block_content.block_content_type.")) {
       $this->generateAllConfigAboutEntity("block_content_type", "block_content_type", NULL, $ar[2]);
     }
+  }
+  
+  /**
+   *
+   * @return string
+   */
+  protected function getViewConfigPrefix() {
+    if (!$this->viewPrefix) {
+      /**
+       *
+       * @var \Drupal\Core\Entity\EntityTypeInterface
+       */
+      $viewDefition = $this->entityTypeManager()->getDefinition('view');
+      $this->viewPrefix = $viewDefition->getConfigPrefix();
+    }
+    return $this->viewPrefix;
   }
   
   /**
@@ -472,7 +520,7 @@ class LoadBase extends ControllerBase {
             ];
             $this->loadConfigsViewTerms($name);
             // On essaie de charger les configurations requises.
-            $this->loadDependancyConfig($name);
+            $this->loadDependancyConfig($name, $defaultConfs);
           }
         }
       }
