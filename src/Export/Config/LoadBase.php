@@ -407,6 +407,12 @@ class LoadBase extends ControllerBase {
                 $this->getConfigFromName($name);
               }
               break;
+            case 'formatage_models_swiperjsimage':
+              if (!empty($value['settings']['image_style'])) {
+                $name = "image.style." . $value['settings']['image_style'];
+                $this->getConfigFromName($name);
+              }
+              break;
           }
         }
     }
