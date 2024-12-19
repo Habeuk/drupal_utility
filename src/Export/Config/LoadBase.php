@@ -298,8 +298,11 @@ class LoadBase extends ControllerBase {
     $this->initExportDir();
     if (empty(self::$configEntities[$name])) {
       $defaultConfs = $this->configStorage->read($name);
-      
       if ($defaultConfs) {
+        if (str_contains($name, 'field.field.') || str_contains($name, 'field.storage.')) {
+          $this->addDefaultEncodeData($defaultConfs);
+          $this->removeDefaultValue($defaultConfs);
+        }
         if (!empty($override)) {
           if ($merge) {
             $configs = NestedArray::mergeDeepArray([
@@ -439,6 +442,53 @@ class LoadBase extends ControllerBase {
       }
     }
     /**
+     * Les variations de produits continnenet des depenses non suivies par
+     * drupal.
+     */
+    elseif (str_contains($nameConf, "commerce_product.commerce_product_variation_type")) {
+      /**
+       *
+       * @var \Drupal\commerce_product\Entity\ProductVariationType $entityType
+       */
+      $entityType = $this->entityTypeManager()->getStorage('commerce_product_variation_type')->load($configs['id']);
+      $OrderItemTypeId = $entityType->getOrderItemTypeId();
+      if ($OrderItemTypeId) {
+        /**
+         *
+         * @var \Drupal\commerce_order\Entity\OrderItemType $OrderItemType
+         */
+        $OrderItemType = $this->entityTypeManager()->getStorage("commerce_order_item_type")->load($OrderItemTypeId);
+        $this->generateAllConfigAboutEntity($OrderItemType->getEntityTypeId(), $OrderItemType->bundle(), $OrderItemType->getEntityType()->getBundleEntityType(), $OrderItemType->id());
+        $OrderTypeId = $OrderItemType->getOrderTypeId();
+        if ($OrderTypeId) {
+          /**
+           *
+           * @var \Drupal\commerce_order\Entity\OrderType $OrderType
+           */
+          $OrderType = $this->entityTypeManager()->getStorage("commerce_order_type")->load($OrderTypeId);
+          $this->generateAllConfigAboutEntity($OrderType->getEntityTypeId(), $OrderType->bundle(), $OrderType->getEntityType()->getBundleEntityType(), $OrderType->id());
+          /**
+           * On recupere le process de paiement.
+           *
+           * @var string $checkout_flow_id
+           */
+          $checkout_flow_id = $OrderType->getThirdPartySetting('commerce_checkout', 'checkout_flow');
+          if ($checkout_flow_id) {
+            /**
+             *
+             * @var \Drupal\commerce_checkout\Entity\CheckoutFlow $commerce_checkout_flow
+             */
+            $commerce_checkout_flow = $this->entityTypeManager()->getStorage("commerce_checkout_flow")->load($checkout_flow_id);
+            $entityTypeDefinition = $this->entityTypeManager()->getDefinition("commerce_checkout_flow");
+            $name = $entityTypeDefinition->getConfigPrefix() . '.' . $checkout_flow_id;
+            if (!$this->hasGenerate($name)) {
+              $this->getConfigFromName($name);
+            }
+          }
+        }
+      }
+    }
+    /**
      * on determine les dependences lies à la variation de produit, car
      * actuelement le code ne le permet pas de maniere automatique.
      */
@@ -506,28 +556,26 @@ class LoadBase extends ControllerBase {
       foreach ($configs['config'] as $config) {
         if (empty(self::$configEntities[$config])) {
           $name = $config;
-          if ($this->filterConfig($config)) {
-            $defaultConfs = $this->configStorage->read($name);
-            if (str_contains($name, 'field.field')) {
-              $this->addDefaultEncodeData($defaultConfs);
-              $this->removeDefaultValue($defaultConfs);
-            }
-            $this->removeUuid($defaultConfs);
-            $this->addConfigModules($defaultConfs, $name);
-            $string = Yaml::encode($defaultConfs);
-            // if (str_contains($name, "image_540x710")) {
-            // dump($name, debugLog::$path, $defaultConfs);
-            // }
-            if (self::$saveIt)
-              debugLog::logger($string, $name . '.yml', false, 'file');
-            self::$configEntities[$name] = [
-              'status' => true,
-              'value' => $string
-            ];
-            $this->loadConfigsViewTerms($name);
-            // On essaie de charger les configurations requises.
-            $this->loadDependancyConfig($name, $defaultConfs);
+          $defaultConfs = $this->configStorage->read($name);
+          if (str_contains($name, 'field.field.') || str_contains($name, 'field.storage.')) {
+            $this->addDefaultEncodeData($defaultConfs);
+            $this->removeDefaultValue($defaultConfs);
           }
+          $this->removeUuid($defaultConfs);
+          $this->addConfigModules($defaultConfs, $name);
+          $string = Yaml::encode($defaultConfs);
+          // if (str_contains($name, "image_540x710")) {
+          // dump($name, debugLog::$path, $defaultConfs);
+          // }
+          if (self::$saveIt)
+            debugLog::logger($string, $name . '.yml', false, 'file');
+          self::$configEntities[$name] = [
+            'status' => true,
+            'value' => $string
+          ];
+          $this->loadConfigsViewTerms($name);
+          // On essaie de charger les configurations requises.
+          $this->loadDependancyConfig($name, $defaultConfs);
         }
       }
   }
@@ -583,18 +631,20 @@ class LoadBase extends ControllerBase {
   }
   
   /**
-   * Certains données de configuration ne doivent pas etre exporter.
-   * Elle doit etre sucharger par les programmes superieurs.
-   */
-  protected function filterConfig($config) {
-    return true;
-  }
-  
-  /**
    * Ajoute les images par defaut, mais encodé.
    */
   protected function addDefaultEncodeData(array &$defaultConfs) {
     if (!empty($defaultConfs['field_type']) && $defaultConfs['field_type'] == 'image' && !empty($defaultConfs['settings']['default_image']['uuid'])) {
+      $uuid = $defaultConfs['settings']['default_image']['uuid'];
+      if ($id = \Drupal::service('paragraphs_type.uuid_lookup')->get($uuid)) {
+        $file = File::load($id);
+        if ($file) {
+          $defaultConfs["default_encode_file"] = 'data:' . $file->getMimeType() . ';base64,' . base64_encode(file_get_contents($file->getFileUri()));
+          $defaultConfs["default_filename"] = $file->getFilename();
+        }
+      }
+    }
+    elseif (!empty($defaultConfs['type']) && $defaultConfs['type'] == 'image' && !empty($defaultConfs['settings']['default_image']['uuid'])) {
       $uuid = $defaultConfs['settings']['default_image']['uuid'];
       if ($id = \Drupal::service('paragraphs_type.uuid_lookup')->get($uuid)) {
         $file = File::load($id);
