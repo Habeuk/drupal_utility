@@ -3,13 +3,13 @@
 namespace Stephane888\DrupalUtility\Export\Config;
 
 use Drupal\Core\Controller\ControllerBase;
-use Drupal\export_import_entities\Services\ThirdPartySettings;
 use Drupal\Core\Extension\ExtensionPathResolver;
 use Drupal\Core\Config\StorageInterface;
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Component\Serialization\Yaml;
 use Stephane888\Debug\debugLog;
 use Drupal\file\Entity\File;
+use Drupal\Core\File\FileSystemInterface;
 
 /**
  * Contient les fonction de bases.
@@ -611,6 +611,15 @@ class LoadBase extends ControllerBase {
       }
       if ($pathFull) {
         debugLog::$path = DRUPAL_ROOT . "/" . $pathFull;
+        /**
+         *
+         * @var \Drupal\Core\File\FileSystem $file_system
+         */
+        $file_system = \Drupal::service('file_system');
+        if (!$file_system->prepareDirectory(debugLog::$path, FileSystemInterface::CREATE_DIRECTORY | FileSystemInterface::MODIFY_PERMISSIONS)) {
+          \Drupal::messenger()->addWarning("Le dossier de sauvegarde n'est pas correctement configuré");
+          self::$saveIt = false;
+        }
       }
       else
         debugLog::$path = DRUPAL_ROOT . '/../sites_exports/default_model/config/install';
@@ -720,6 +729,15 @@ class LoadBase extends ControllerBase {
    */
   public function setSaveIt($action = true) {
     self::$saveIt = $action;
+  }
+  
+  /**
+   * Permet de savoir si les données de configurations doivent etre enregistrer.
+   *
+   * @return boolean
+   */
+  public function getSaveIt() {
+    return self::$saveIt;
   }
   
   public function setRemoveUUID($action = true) {
